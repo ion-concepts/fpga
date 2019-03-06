@@ -417,12 +417,41 @@ endgenerate
    wire [11:0] 	  rx_seqnum;
    wire [63:0] rx_tdata_i; wire rx_tlast_i, rx_tvalid_i, rx_tready_i;
 
+   /////////////////////////////////////////////////////////////
+   //
+   // GPIO's streaming in RX sample stream modification.
+   //
+   // All B2x0 GPIO's have integrated pullup's so that if 
+   // they are unconnected they read a 1 if they are configured as inputs.
+   // The two GPIO's on J400 are present on B200 and B210 and are 1.8V LVCMOS levels.
+   // The eight GPIO's on J504 have been present on B210 since PCB Rev6 and are
+   // 3.3V LVCMOS levels.
+   // By XORing pin1 of J504 (fp_gpio_in[0]) and pin1 of J400 (fp_gpio_in[8]) to form gpio_a
+   // and XORing pin2 of J504 (fp_gpio_in[1]) and pin3 of J400 (fp_gpio_in[9]) to form gpio_b
+   // we gain the ability to use either connector with one FPGA image and unmodified UHD.
+   // If both pins are configured as inputs and one is unconnected, then the sense of the connected pin
+   // will be streamed in an inverted sense.
+   // If the unconnected pin is configured as an output driving 0, then the connected pin will
+   // be streamed in a non-inverted sense.
+   //
+   // The original LSB for I and Q from the DDC is simply discarded, and replaced with gpio_a 
+   // in the I channel LSB, and gpio_b in the Q channel LSB.
+   //
+   ////////////////////////////////////////////////////////////////
+   reg         gpio_a, gpio_b;
+
+   always @(posedge radio_clk) begin
+      gpio_a <= fp_gpio_in[0] ^ fp_gpio_in[8];
+      gpio_b <= fp_gpio_in[1] ^ fp_gpio_in[9];
+   end
+      
+
    wire [31:0] debug_rx_framer;
    new_rx_framer #(.BASE(SR_RX_CTRL+4),.SAMPLE_FIFO_SIZE(SAMPLE_FIFO_SIZE)) new_rx_framer
      (.clk(radio_clk), .reset(radio_rst), .clear(1'b0),
       .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
       .vita_time(vita_time),
-      .strobe(strobe_rx), .sample(sample_rx), .run(run_rx), .eob(eob_rx), .full(full),
+      .strobe(strobe_rx), .sample({sample_rx[31:17],gpio_a,sample_rx[15:1],gpio_b}), .run(run_rx), .eob(eob_rx), .full(full),
       .sid(rx_sid), .seqnum(rx_seqnum),
       .o_tdata(rx_tdata_i), .o_tlast(rx_tlast_i), .o_tvalid(rx_tvalid_i), .o_tready(rx_tready_i),
       .debug(debug_rx_framer));
