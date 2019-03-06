@@ -34,8 +34,16 @@ module flow_control_responder #(
   output [WIDTH-1:0] fc_tdata, output fc_tlast, output fc_tvalid, input fc_tready
 );
 
-  `include "chdr_pkt_types.vh"
-
+ // `include "chdr_pkt_types.vh"
+localparam [2:0] DATA_PKT     = 3'b000;
+localparam [2:0] DATA_EOB_PKT = 3'b001;
+localparam [2:0] FC_RESP_PKT  = 3'b010;
+localparam [2:0] FC_ACK_PKT   = 3'b011;
+localparam [2:0] CMD_PKT      = 3'b100;
+localparam [2:0] CMD_EOB_PKT  = 3'b101;  // Unused
+localparam [2:0] RESP_PKT     = 3'b110;
+localparam [2:0] RESP_ERR_PKT = 3'b111;
+   
   wire enable_consumed;
   wire [30:0] bytes_per_ack;
   setting_reg #(.my_addr(SR_FLOW_CTRL_BYTES_PER_ACK), .at_reset(0)) sr_bytes_per_ack (
